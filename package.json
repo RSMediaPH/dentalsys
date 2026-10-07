@@ -1,0 +1,42 @@
+{
+  "name": "dental-clinic-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Branch-local dental clinic management system with cloud coordination (working name).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12 <25"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/src/server.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate": "tsx src/cli/migrate.ts",
+    "seed:demo": "tsx src/cli/seed-demo.ts",
+    "backup": "tsx src/cli/backup.ts",
+    "restore": "tsx src/cli/restore.ts",
+    "backup:keygen": "tsx src/cli/backup-keygen.ts",
+    "test": "node --import tsx --test --test-concurrency=1 test/*.test.ts",
+    "e2e": "tsx scripts/e2e-offline-demo.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@fastify/formbody": "9.0.0",
+    "@fastify/helmet": "13.1.1",
+    "@fastify/static": "10.1.5",
+    "argon2": "0.45.1",
+    "better-sqlite3": "13.0.3",
+    "fastify": "5.12.5",
+    "luxon": "3.7.2",
+    "uuid": "14.0.2",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/luxon": "3.7.6",
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
