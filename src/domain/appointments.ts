@@ -9,7 +9,7 @@ import { dayRangeUtc, localToUtcIso, minutesToHHMM, toLocal } from '../lib/time.
 import { audit, mapDbError, requirePerm, type Ctx } from './context.js';
 import { branchHours } from './orgs.js';
 import { recordEvent } from './outbox.js';
-import { getPatient } from './patients.js';
+import { getPatientSummary, isPatientConnected } from './patients.js';
 
 export const STATUSES = ['scheduled', 'confirmed', 'arrived', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
 export type AppointmentStatus = (typeof STATUSES)[number];
@@ -151,7 +151,8 @@ function assertSlotBookable(ctx: Ctx, slot: Slot, ignoreId: string | null): void
 export function bookAppointment(ctx: Ctx, raw: unknown): AppointmentRow {
   requirePerm(ctx, 'appointment.manage');
   const input = parse(bookingSchema, raw);
-  getPatient(ctx, input.patient_id, { audit: false }); // 404 if not visible / other org
+  getPatientSummary(ctx, input.patient_id); // any patient of this organization (404 for other orgs)
+  const newlyLinked = !isPatientConnected(ctx, input.patient_id);
   if (input.service_id) {
     const svc = ctx.db.prepare('SELECT 1 FROM services WHERE id = ? AND org_id = ? AND is_active = 1').get(input.service_id, ctx.org.id);
     if (!svc) throw invalid('Please correct the highlighted fields.', { service_id: 'Unknown procedure' });
@@ -175,6 +176,7 @@ export function bookAppointment(ctx: Ctx, raw: unknown): AppointmentRow {
       addEvent(ctx, id, 'created', details);
       recordEvent(ctx, { entityType: 'appointment', entityId: id, op: 'created', entityVersion: 1, payload: { ...details, patient_id: input.patient_id, service_id: input.service_id || null, status: 'scheduled' } });
       audit(ctx, 'appointment.create', 'appointment', id);
+      if (newlyLinked) audit(ctx, 'patient.linked_to_branch', 'patient', input.patient_id, { via: 'appointment' });
     });
   } catch (e) {
     if (e instanceof AppError) throw e;

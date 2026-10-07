@@ -1,6 +1,7 @@
 // Organization, branch, staff and chair setup.
 // In Milestone 1 these are used by the seed/provisioning CLI and tests; the admin UI is read-only.
-// In Milestone 2 organization-level records become cloud-owned and are synced down to branches.
+// Since Milestone 2 every change here is also emitted for synchronization (once connected to the cloud),
+// so all branches of the organization receive the same staff, chairs, services and branch settings.
 import type { DB } from '../db/db.js';
 import { hashPassword, MIN_PASSWORD_LENGTH, revokeUserSessions } from '../auth/auth.js';
 import type { Role } from '../auth/permissions.js';
@@ -8,6 +9,7 @@ import { forbidden, invalid, newId, nowIso } from '../lib/core.js';
 import { tx } from '../db/db.js';
 import type { Branch, Ctx, Organization } from './context.js';
 import { audit } from './context.js';
+import { emitOrgEntity } from '../sync/org-entities.js';
 
 export function createOrganization(db: DB, o: { name: string; currency?: string; timezone?: string }): Organization {
   const id = newId();
@@ -31,6 +33,7 @@ export function createBranch(
     const hours = b.hours ?? [1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, open: 9 * 60, close: 18 * 60 }));
     const ins = db.prepare('INSERT INTO branch_hours (branch_id, weekday, open_min, close_min) VALUES (?, ?, ?, ?)');
     for (const h of hours) ins.run(id, h.weekday, h.open, h.close);
+    emitOrgEntity(db, 'branch', id);
   });
   return db.prepare('SELECT * FROM branches WHERE id = ?').get(id) as Branch;
 }
@@ -38,6 +41,7 @@ export function createBranch(
 export function createOperatory(db: DB, orgId: string, branchId: string, name: string): string {
   const id = newId();
   db.prepare('INSERT INTO operatories (id, org_id, branch_id, name) VALUES (?, ?, ?, ?)').run(id, orgId, branchId, name);
+  emitOrgEntity(db, 'operatory', id);
   return id;
 }
 
@@ -65,14 +69,28 @@ export async function createStaff(
       if (!ok) throw invalid('Branch does not belong to this organization.');
       db.prepare('INSERT INTO membership_branches (membership_id, branch_id) VALUES (?, ?)').run(membershipId, branchId);
     }
+    emitOrgEntity(db, 'user', userId);
+    emitOrgEntity(db, 'membership', membershipId);
     return { userId, membershipId };
   });
 }
 
 export function addDentistBlock(db: DB, orgId: string, branchId: string, membershipId: string, weekday: number, startMin: number, endMin: number): void {
+  const id = newId();
   db.prepare(
     `INSERT INTO dentist_schedules (id, org_id, branch_id, membership_id, weekday, start_min, end_min) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(newId(), orgId, branchId, membershipId, weekday, startMin, endMin);
+  ).run(id, orgId, branchId, membershipId, weekday, startMin, endMin);
+  emitOrgEntity(db, 'dentist_schedule', id);
+}
+
+/** Assign an existing staff member to another branch of the same organization. */
+export function assignStaffToBranch(db: DB, membershipId: string, branchId: string): void {
+  tx(db, () => {
+    const ok = db.prepare('SELECT 1 FROM memberships m JOIN branches b ON b.org_id = m.org_id WHERE m.id = ? AND b.id = ?').get(membershipId, branchId);
+    if (!ok) throw invalid('Branch does not belong to this staff member\'s organization.');
+    db.prepare('INSERT OR IGNORE INTO membership_branches (membership_id, branch_id) VALUES (?, ?)').run(membershipId, branchId);
+    emitOrgEntity(db, 'membership', membershipId);
+  });
 }
 
 export function createService(db: DB, orgId: string, s: { code: string; name: string; durationMin: number; priceMinor: number }): string {
@@ -80,6 +98,7 @@ export function createService(db: DB, orgId: string, s: { code: string; name: st
   db.prepare(
     'INSERT INTO services (id, org_id, code, name, default_duration_min, price_minor) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(id, orgId, s.code, s.name, s.durationMin, s.priceMinor);
+  emitOrgEntity(db, 'service', id);
   return id;
 }
 
@@ -93,6 +112,8 @@ export function deactivateMembership(ctx: Ctx, membershipId: string): void {
   tx(ctx.db, () => {
     ctx.db.prepare('UPDATE memberships SET is_active = 0 WHERE id = ?').run(membershipId);
     revokeUserSessions(ctx.db, m.user_id);
+    emitOrgEntity(ctx.db, 'membership', membershipId, ctx.user.id);
+    emitOrgEntity(ctx.db, 'user', m.user_id, ctx.user.id);
     audit(ctx, 'staff.deactivated', 'membership', membershipId);
   });
 }

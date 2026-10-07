@@ -4,3 +4,4 @@ data/
 .env
 *.dsbak
 *.key
+cloud-data/

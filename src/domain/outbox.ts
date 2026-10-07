@@ -31,12 +31,12 @@ export function recordEvent(ctx: Ctx, e: OutboxEventInput): string {
   ctx.db
     .prepare(
       `INSERT INTO outbox_events (id, org_id, branch_id, node_id, entity_type, entity_id, op, entity_version, base_version,
-                                  payload_json, schema_version, app_version, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                  payload_json, schema_version, app_version, created_at, actor_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id, ctx.org.id, ctx.branch.id, nodeId(ctx.db), e.entityType, e.entityId, e.op,
-      e.entityVersion ?? null, e.baseVersion ?? null, JSON.stringify(e.payload), EVENT_SCHEMA_VERSION, APP_VERSION, nowIso(),
+      e.entityVersion ?? null, e.baseVersion ?? null, JSON.stringify(e.payload), EVENT_SCHEMA_VERSION, APP_VERSION, nowIso(), ctx.user.id,
     );
   return id;
 }

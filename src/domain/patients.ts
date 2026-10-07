@@ -5,6 +5,7 @@ import { AppError, conflict, invalid, isUuid, newId, normalizePhone, normalizeTe
 import { isValidDate } from '../lib/time.js';
 import { audit, can, requirePerm, type Ctx } from './context.js';
 import { nextSequence, recordEvent } from './outbox.js';
+import { PATIENT_DEMOGRAPHIC_FIELDS, PATIENT_MEDICAL_FIELDS } from '../sync/protocol.js';
 
 const text = (max: number) => z.string().trim().max(max).default('');
 export const patientSchema = z.object({
@@ -26,11 +27,8 @@ export const patientSchema = z.object({
   medical_history: text(4000),
 });
 export type PatientInput = z.infer<typeof patientSchema>;
-const MEDICAL_FIELDS = ['allergies', 'medications', 'medical_history'] as const;
-const DEMOGRAPHIC_FIELDS = [
-  'first_name', 'middle_name', 'last_name', 'sex', 'date_of_birth', 'phone', 'email', 'address',
-  'emergency_contact_name', 'emergency_contact_phone', 'guardian_name', 'guardian_relationship', 'guardian_phone',
-] as const;
+const MEDICAL_FIELDS = PATIENT_MEDICAL_FIELDS;
+const DEMOGRAPHIC_FIELDS = PATIENT_DEMOGRAPHIC_FIELDS;
 
 export interface PatientRow extends PatientInput {
   id: string;
@@ -38,6 +36,7 @@ export interface PatientRow extends PatientInput {
   patient_no: string;
   registered_branch_id: string;
   version: number;
+  cloud_version: number;
   created_at: string;
   updated_at: string;
   merged_into_id: string | null;
@@ -213,9 +212,30 @@ export function updatePatient(ctx: Ctx, id: string, rawInput: unknown, baseVersi
       throw conflict('STALE_EDIT', 'Someone else updated this patient after you opened the form. Reload to see their changes, then re-apply yours.');
     }
     const changes = Object.fromEntries(changed.map((f) => [f, input[f]]));
-    recordEvent(ctx, { entityType: 'patient', entityId: id, op: 'updated', entityVersion: baseVersion + 1, baseVersion, payload: { changes } });
+    // base_cloud_version lets the cloud detect edits made elsewhere since this record was last synced.
+    recordEvent(ctx, { entityType: 'patient', entityId: id, op: 'updated', entityVersion: baseVersion + 1, baseVersion, payload: { changes, base_cloud_version: existing.cloud_version } });
     // Audit field names only, never values.
     audit(ctx, 'patient.update', 'patient', id, { fields: changed });
   });
   return ctx.db.prepare('SELECT * FROM patients WHERE id = ?').get(id) as PatientRow;
+}
+
+/**
+ * Minimal identification of any patient in the organization (as shown in search results), plus whether
+ * medical alerts exist. Used to book a patient registered at another branch; booking then connects the
+ * patient to this branch, which allows the full record to be opened here.
+ */
+export function getPatientSummary(ctx: Ctx, id: string): PatientSummary & { full_name: string; has_medical_alerts: boolean } {
+  requirePerm(ctx, 'patient.view');
+  const p = loadPatientRow(ctx, id);
+  if (!p || p.merged_into_id) throw notFound('Patient');
+  const branchCode = ctx.db.prepare('SELECT code FROM branches WHERE id = ?').pluck().get(p.registered_branch_id) as string;
+  const s = toSummary({ ...p, branch_code: branchCode });
+  return { ...s, full_name: s.name, has_medical_alerts: MEDICAL_FIELDS.some((f) => p[f].trim() !== '') };
+}
+
+/** Whether this user can already open the full record (registration/visit/invoice at an assigned branch). */
+export function isPatientConnected(ctx: Ctx, id: string): boolean {
+  const p = loadPatientRow(ctx, id);
+  return Boolean(p && canViewPatient(ctx, p));
 }

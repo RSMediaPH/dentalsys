@@ -8,7 +8,7 @@ import {
 import { listServices } from '../../domain/billing.js';
 import { can, requirePerm, type Ctx } from '../../domain/context.js';
 import { branchHours, listDentists, listOperatories } from '../../domain/orgs.js';
-import { getPatient, searchPatients } from '../../domain/patients.js';
+import { getPatientSummary, searchPatients } from '../../domain/patients.js';
 import { AppError, html, isUuid, type SafeHtml } from '../../lib/core.js';
 import { fmtDate, fmtDateTime, fmtTime, isValidDate, minutesToHHMM, toLocal, todayIn } from '../../lib/time.js';
 import { csrfInput, emptyState, field, page, select, statusBadge, textarea } from '../ui.js';
@@ -61,7 +61,7 @@ function weekList(ctx: Ctx, start: string, appts: AppointmentView[]): SafeHtml {
 
 function bookingForm(ctx: Ctx, csrf: string, v: Form, errors: Record<string, string>): SafeHtml {
   const services = listServices(ctx);
-  const patient = v.patient_id && isUuid(v.patient_id) ? getPatient(ctx, v.patient_id, { audit: false }) : null;
+  const patient = v.patient_id && isUuid(v.patient_id) ? getPatientSummary(ctx, v.patient_id) : null;
   const keep = (extra: Record<string, string>) =>
     new URLSearchParams(Object.fromEntries(Object.entries({ ...v, ...extra }).filter(([k, x]) => x && k !== '_csrf'))).toString();
   if (!patient) {
