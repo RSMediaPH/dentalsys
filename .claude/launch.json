@@ -1,6 +1,9 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "branch-server", "runtimeExecutable": "npx", "runtimeArgs": ["tsx", "src/server.ts"], "port": 8080 }
+    { "name": "branch-server", "runtimeExecutable": "npx", "runtimeArgs": ["tsx", "src/server.ts"], "port": 8080 },
+    { "name": "demo-cloud", "runtimeExecutable": "env", "runtimeArgs": ["CLOUD_DATA_DIR=demo-multibranch/cloud", "CLOUD_PORT=9090", "npx", "tsx", "src/cloud/server.ts"], "port": 9090 },
+    { "name": "demo-branch-a", "runtimeExecutable": "env", "runtimeArgs": ["DATA_DIR=demo-multibranch/a", "PORT=8080", "SYNC_INTERVAL_SECONDS=5", "npx", "tsx", "src/server.ts"], "port": 8080 },
+    { "name": "demo-branch-b", "runtimeExecutable": "env", "runtimeArgs": ["DATA_DIR=demo-multibranch/b", "PORT=8081", "SYNC_INTERVAL_SECONDS=5", "npx", "tsx", "src/server.ts"], "port": 8081 }
   ]
 }

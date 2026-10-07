@@ -1,7 +1,7 @@
 // Login, logout, branch switching and the "Today" start page.
 import type { FastifyInstance } from 'fastify';
 import { destroySession, login, switchBranch } from '../../auth/auth.js';
-import { can } from '../../domain/context.js';
+import { can, localBranchIds } from '../../domain/context.js';
 import { listAppointments, STATUS_LABELS } from '../../domain/appointments.js';
 import { html } from '../../lib/core.js';
 import { fmtTime, todayIn } from '../../lib/time.js';
@@ -66,12 +66,15 @@ export function registerAuthRoutes(app: FastifyInstance, { db, cfg }: Deps): voi
     const branches = db
       .prepare(`SELECT id, code, name FROM branches WHERE id IN (${a.ctx.assignedBranchIds.map(() => '?').join(',')}) ORDER BY name`)
       .all(...a.ctx.assignedBranchIds) as { id: string; code: string; name: string }[];
+    const local = localBranchIds(db);
     return sendPage(reply, page({
       title: 'Switch branch', ctx: a.ctx, csrf: a.csrf,
       body: html`<h1>Switch branch</h1><p class="muted">You can work at the branches you are assigned to.</p>
-        <ul class="list">${branches.map((b) => html`<li><form method="post" action="/switch-branch" class="inline">${csrfInput(a.csrf)}
+        <ul class="list">${branches.filter((b) => local.includes(b.id)).map((b) => html`<li><form method="post" action="/switch-branch" class="inline">${csrfInput(a.csrf)}
           <input type="hidden" name="branch_id" value="${b.id}">
-          <button ${b.id === a.ctx.branch.id ? html`disabled` : ''}>${b.name} (${b.code})${b.id === a.ctx.branch.id ? ' — current' : ''}</button></form></li>`)}</ul>`,
+          <button ${b.id === a.ctx.branch.id ? html`disabled` : ''}>${b.name} (${b.code})${b.id === a.ctx.branch.id ? ' — current' : ''}</button></form></li>`)}</ul>
+        ${branches.some((b) => !local.includes(b.id)) ? html`<p class="hint">You are also assigned to: ${branches.filter((b) => !local.includes(b.id)).map((b) => b.name).join(', ')}.
+          To work there, use that branch's own clinic server. This server runs ${a.ctx.branch.name} only.</p>` : ''}`,
     }));
   });
 

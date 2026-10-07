@@ -57,7 +57,8 @@ export function buildContext(db: DB, userId: string, membershipId: string, branc
   if (!row || !row.user_active || !row.membership_active) return null;
 
   const assignedBranchIds = assignedBranches(db, row.membership_id, row.role, row.org_id);
-  if (!assignedBranchIds.includes(branchId)) return null;
+  // Work happens only at the branch this server runs (other branches' records here are read-only copies).
+  if (!assignedBranchIds.includes(branchId) || !localBranchIds(db).includes(branchId)) return null;
 
   const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(row.org_id) as Organization;
   const branch = db.prepare('SELECT * FROM branches WHERE id = ? AND org_id = ?').get(branchId, row.org_id) as Branch | undefined;
@@ -73,6 +74,15 @@ export function buildContext(db: DB, userId: string, membershipId: string, branc
     perms: permissionsFor(row.role),
     ip,
   };
+}
+
+/**
+ * Branches this server is the source of truth for. Once connected to the cloud that is exactly its
+ * enrolled branch; before that, every branch in its database (single-branch installations).
+ */
+export function localBranchIds(db: DB): string[] {
+  const own = db.prepare(`SELECT value FROM sync_state WHERE key = 'branch_id'`).pluck().get() as string | undefined;
+  return own ? [own] : (db.prepare('SELECT id FROM branches').pluck().all() as string[]);
 }
 
 export function assignedBranches(db: DB, membershipId: string, role: Role, orgId: string): string[] {

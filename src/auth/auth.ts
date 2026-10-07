@@ -3,7 +3,7 @@ import argon2 from 'argon2';
 import type { DB } from '../db/db.js';
 import type { Config } from '../config.js';
 import { clock, nowIso, randomToken, sha256Hex } from '../lib/core.js';
-import { assignedBranches, audit, buildContext, type Ctx } from '../domain/context.js';
+import { assignedBranches, audit, buildContext, localBranchIds, type Ctx } from '../domain/context.js';
 import type { Role } from './permissions.js';
 
 // ---------- Passwords ----------
@@ -68,7 +68,8 @@ export async function login(db: DB, cfg: Config, email: string, password: string
     .prepare('SELECT id, role, org_id FROM memberships WHERE user_id = ? AND is_active = 1 ORDER BY created_at')
     .all(user.id) as { id: string; role: Role; org_id: string }[];
   for (const m of memberships) {
-    const branches = assignedBranches(db, m.id, m.role, m.org_id);
+    const local = localBranchIds(db);
+    const branches = assignedBranches(db, m.id, m.role, m.org_id).filter((b) => local.includes(b));
     if (!branches.length) continue;
     recordAttempt(db, email, ip, true);
     const token = createSession(db, cfg, user.id, m.id, branches[0]!);
@@ -135,7 +136,7 @@ export function destroySession(db: DB, token: string | undefined): void {
 
 /** Switch the active branch, after checking the membership is assigned to it. */
 export function switchBranch(ctx: Ctx, token: string, branchId: string): boolean {
-  if (!ctx.assignedBranchIds.includes(branchId)) return false;
+  if (!ctx.assignedBranchIds.includes(branchId) || !localBranchIds(ctx.db).includes(branchId)) return false;
   ctx.db.prepare('UPDATE sessions SET branch_id = ? WHERE token_hash = ?').run(branchId, sha256Hex(token));
   audit({ ...ctx, branch: { id: branchId } }, 'auth.branch_switched', 'branch', branchId);
   return true;

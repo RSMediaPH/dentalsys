@@ -1,0 +1,23 @@
+# Render Blueprint for the DentalSys CLOUD coordination service (database: Supabase PostgreSQL).
+# Render → New → Blueprint → this repository → set "Blueprint path" to deploy/render-cloud.yaml.
+services:
+  - type: web
+    name: dentalsys-cloud
+    runtime: node
+    region: singapore
+    plan: starter              # always on; free instances sleep and branches would show "Cloud offline"
+    buildCommand: npm ci && npm run build
+    startCommand: npm run cloud:start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "true"
+      - key: DATABASE_URL
+        sync: false            # Supabase "Session pooler" connection string (you paste it in Render)
+      - key: DATABASE_CA_CERT_FILE
+        value: /etc/secrets/supabase-ca.crt   # upload as a Render "Secret File" named supabase-ca.crt

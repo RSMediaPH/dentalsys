@@ -37,8 +37,7 @@
       if (!res.ok) throw new Error('status ' + res.status);
       const s = await res.json();
       setPill(pills.local, 'ok', '● Clinic server');
-      setPill(pills.cloud, s.cloud.configured ? (s.cloud.state === 'online' ? 'ok' : 'warn') : 'muted',
-        s.cloud.configured ? (s.cloud.state === 'online' ? '● Cloud' : '● Cloud offline') : '○ Cloud: not set up');
+      setPill(pills.cloud, s.cloud.pill.cls, s.cloud.pill.text, s.cloud.pill.title);
       setPill(pills.sync, s.sync.failed ? 'error' : 'muted', '⇅ ' + s.sync.pending + ' pending' + (s.sync.failed ? ' · ' + s.sync.failed + ' failed' : ''),
         'Changes waiting to be sent to the cloud. Last successful sync: ' + (s.sync.last_success_at || 'never'));
       show('', '');

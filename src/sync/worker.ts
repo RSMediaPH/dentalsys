@@ -11,7 +11,8 @@ import {
   type EventResult, type WireEvent,
 } from './protocol.js';
 
-export type CloudState = 'not_configured' | 'online' | 'offline' | 'error' | 'update_required' | 'revoked';
+import type { CloudState } from '../domain/outbox.js';
+export type { CloudState };
 
 export class CloudUnreachable extends Error {}
 export class CloudHttpError extends Error {
@@ -135,7 +136,17 @@ function backfillActors(db: DB): void {
 // ---------- One sync cycle ----------
 export interface SyncResult { state: CloudState; uploaded: number; rejected: number; downloaded: number; error?: string }
 
-export async function syncOnce(db: DB, o: SyncOptions = {}): Promise<SyncResult> {
+// One cycle at a time per database (the background loop and "Sync now" share it).
+const inFlight = new WeakMap<DB, Promise<SyncResult>>();
+export function syncOnce(db: DB, o: SyncOptions = {}): Promise<SyncResult> {
+  const running = inFlight.get(db);
+  if (running) return running;
+  const p = syncCycle(db, o).finally(() => inFlight.delete(db));
+  inFlight.set(db, p);
+  return p;
+}
+
+async function syncCycle(db: DB, o: SyncOptions): Promise<SyncResult> {
   const st = getState(db);
   if (st.cloud_configured !== 'true') return { state: 'not_configured', uploaded: 0, rejected: 0, downloaded: 0 };
   const nodeId = db.prepare('SELECT id FROM node_identity').pluck().get() as string;

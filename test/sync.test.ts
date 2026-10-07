@@ -11,12 +11,15 @@ import { addDentistBlock, assignStaffToBranch, createBranch, createOperatory, cr
 import { getPatient, registerPatient, updatePatient } from '../src/domain/patients.js';
 import { bookAppointment } from '../src/domain/appointments.js';
 import { addLine, createDraftInvoice, issueInvoice, recordPayment, reversePayment } from '../src/domain/billing.js';
-import { newId } from '../src/lib/core.js';
+import { clock, newId } from '../src/lib/core.js';
+import { orgReport } from '../src/domain/org-report.js';
+import { listConflicts, resolveConflict } from '../src/domain/conflicts.js';
 import { buildCloudApp } from '../src/cloud/app.js';
 import { pgliteSql, type Sql } from '../src/cloud/sql.js';
 import { createInvite, migrateCloud, revokeNode } from '../src/cloud/store.js';
 import { connectToCloud, getState, syncOnce, CloudHttpError } from '../src/sync/worker.js';
 import { PASSWORD, tempDir } from './helpers.js';
+import { login } from '../src/auth/auth.js';
 
 const ALL_WEEK = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, open: 8 * 60, close: 20 * 60 }));
 const offline: typeof fetch = async () => { throw new TypeError('fetch failed'); };
@@ -126,6 +129,15 @@ describe('multi-branch synchronization (cloud + two branches)', () => {
     assert.equal(count(A, 'SELECT COUNT(*) FROM membership_branches WHERE membership_id = ? AND branch_id = ?', ids.recM, ids.branchB), 1);
   });
 
+  it('a clinic server only lets staff work at its own branch (other branches are read-only copies)', async () => {
+    // The receptionist is assigned to both branches, but each server only accepts its own branch.
+    assert.equal(buildContext(B, ids.recUser!, ids.recM!, ids.branchA!), null);
+    assert.equal(buildContext(A, ids.recUser!, ids.recM!, ids.branchB!), null);
+    assert.ok(buildContext(B, ids.recUser!, ids.recM!, ids.branchB!));
+    const r = await login(B, loadConfig({ DATA_DIR: tempDir() }), 'rec@sync.test', PASSWORD, '10.1.1.1');
+    assert.ok(r.ok && r.ctx.branch.id === ids.branchB);
+  });
+
   it('3–5. branch A loses internet, both keep working, A reconnects, everything reconciles', async () => {
     // A offline: syncing fails as "offline", local work continues.
     const off = await syncOnce(A, { fetchImpl: offline });
@@ -225,6 +237,44 @@ describe('multi-branch synchronization (cloud + two branches)', () => {
     assert.equal((await syncOnce(B)).state, 'online');
     assert.equal((await syncOnce(A)).state, 'online');
     assert.equal(count(A, 'SELECT COUNT(*) FROM patients WHERE id = ?', rec.id), 1);
+  });
+
+  it('resolving a conflict at one branch settles it everywhere', async () => {
+    const [c] = listConflicts(ctxA('owner'));
+    assert.equal(c!.field, 'phone');
+    resolveConflict(ctxA('owner'), c!.id, 'incoming'); // use the other branch's value (A's own offline edit)
+    await syncOnce(A);
+    await syncOnce(B);
+    await syncOnce(A);
+    for (const db of [A, B]) {
+      assert.equal(count(db, `SELECT COUNT(*) FROM sync_conflicts WHERE status = 'open'`), 0);
+      assert.equal(db.prepare('SELECT phone FROM patients WHERE id = ?').pluck().get(ids.patient), '0917 111 2222');
+    }
+    assert.equal(count(A, `SELECT COUNT(*) FROM sync_conflicts WHERE status = 'open'`), 0);
+  });
+
+  it('consolidated report shows each branch’s freshness and flags stale branches as possibly incomplete', async () => {
+    await syncOnce(B);
+    await syncOnce(A);
+    const owner = ctxA('owner');
+    let r = orgReport(owner, '2030-01-07', '2030-01-08');
+    assert.equal(r.incomplete, false);
+    assert.deepEqual(r.rows.map((x) => [x.code, x.freshness]), [['AAA', 'live'], ['BBB', 'current']]);
+    assert.equal(r.rows.find((x) => x.code === 'BBB')!.appointments, 1); // B's booking is visible at A
+    // Two hours later, B has not synchronized (e.g. its internet is down) but A has.
+    const real = clock.now;
+    clock.now = () => new Date(Date.now() + 2 * 3600_000);
+    try {
+      const st = A.prepare(`UPDATE sync_state SET value = ? WHERE key = 'last_success_at'`);
+      st.run(clock.now().toISOString());
+      r = orgReport(owner, '2030-01-07', '2030-01-08');
+      assert.equal(r.incomplete, true);
+      assert.equal(r.rows.find((x) => x.code === 'BBB')!.freshness, 'stale');
+      assert.match(r.incomplete_reasons[0]!, /Bravo Branch/);
+    } finally {
+      clock.now = real;
+    }
+    assert.throws(() => orgReport(ctxA('rec'), '2030-01-07', '2030-01-07'), /permission/);
   });
 
   it('revocations travel: a deactivation at B ends the user’s sessions at A after sync', async () => {

@@ -6,7 +6,7 @@
 |---|---|
 | 0 — Architecture and product decisions | **Done** (docs 00–09) |
 | 1 — Single-branch vertical slice | **Done, development quality.** Not production-ready (see below) |
-| 2 — Multi-branch and synchronization | Designed (`05-sync-and-conflicts.md`); not started |
+| 2 — Multi-branch and synchronization | **Done, development quality.** Cloud service + Supabase deployment files, enrollment, two-way sync, conflicts, consolidated report. Not production-ready |
 | 3 — Clinical workflow | Not started |
 | 4 — Inventory and operations | Not started |
 | 5 — Release preparation | Not started |
@@ -22,7 +22,7 @@
 | Billing | Service catalog with prices, draft → issued invoices, line and invoice discounts, partial payments, idempotent payment entry, reversals with reason, voids, printable payment acknowledgement, patient account | Refunds/credit notes and patient credit balances, catalog editing UI, tax handling, paying another branch's invoice |
 | Reports | Daily collections (received / reversals / net / by method / by dentist), charges issued, outstanding | Appointment & no-show report, expenses, low stock, consolidated org dashboard (M2/M4) |
 | Audit | Append-only audit log for logins, record views, changes, financial actions; viewer for managers | Export, retention policy |
-| Sync | Transactional outbox, pending count in the header, status API | Everything else (M2) |
+| Sync (M2) | Cloud service, one-time connection codes, upload/download with retries, shared patients, conflicts to review, organization report with freshness, revocation propagation, version gate | Patient merge, remote access via cloud, cloud backup copy, attachment sync, cloud admin web UI |
 | Backup | Encrypted, test-restored backups (manual + daily schedule), retention, restore CLI into a clean directory, admin status page | Cloud backup copy (M2), restore UI |
 
 ## Supported offline scope
@@ -33,13 +33,13 @@
 |---|---|---|
 | Sign in / out | ✅ | ❌ |
 | Register, search, edit patients registered or seen at this branch | ✅ | ❌ |
-| See patient records from other branches | ⚠️ M2: last-synced copy with freshness label | ❌ |
+| Find and book patients registered at other branches | ✅ last-synced copy | ❌ |
 | Book / reschedule / update appointments at this branch | ✅ | ❌ |
 | Book at another branch | ❌ (requires that branch's server; deferred) | ❌ |
 | Issue invoices, record payments and reversals at this branch | ✅ | ❌ |
 | Pay another branch's invoice | ❌ (deferred) | ❌ |
 | Daily collections for this branch | ✅ complete | ❌ |
-| Organization-wide consolidated reports | ⚠️ M2: shows last sync per branch, marked possibly incomplete | ❌ |
+| Organization-wide consolidated report | ⚠️ shows each branch as of its last sync, flagged "may be incomplete" | ❌ |
 | Local backups | ✅ | ❌ |
 | Cloud backup copy, remote access, permission changes from HQ | ❌ (queued until reconnect) | ❌ |
 
@@ -49,6 +49,7 @@ Disconnected branches cannot guarantee global schedule availability, and permiss
 
 ## Known limitations and risks (Milestone 1)
 
+* **Multi-branch (M2):** other branches' data is only as fresh as the last sync. Staff/settings changes made at two branches at once: the last one received by the cloud wins. Branch setup (chairs, assignments, dentist hours) is CLI-only for now. Patient duplicates created at two branches while offline must be merged manually (merge workflow pending).
 * **Not production-ready.** Needs: TLS on the LAN, installer/Windows service, staff/settings admin UI, security review, dentist and accountant review of workflows and wording, pilot testing.
 * Only tested on macOS with Node 22.16. Windows testing is required before pilot.
 * The live database file is not encrypted by the application; production relies on full-disk encryption (BitLocker) — see `06-security.md`.

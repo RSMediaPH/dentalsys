@@ -4,6 +4,7 @@ import { can, requirePerm, type Ctx } from '../../domain/context.js';
 import { DuplicateSuspected, getPatient, registerPatient, searchPatients, updatePatient, type PatientSummary, type PatientView } from '../../domain/patients.js';
 import { patientAppointments, STATUS_LABELS } from '../../domain/appointments.js';
 import { patientAccount } from '../../domain/billing.js';
+import { patientBalanceElsewhere } from '../../domain/org-report.js';
 import { AppError, html, type SafeHtml } from '../../lib/core.js';
 import { fmtDate, fmtDateTime } from '../../lib/time.js';
 import { csrfInput, emptyState, field, money, page, select, statusBadge, textarea } from '../ui.js';
@@ -104,6 +105,7 @@ export function registerPatientRoutes(app: FastifyInstance, _deps: Deps): void {
     const p = getPatient(ctx, (req.params as { id: string }).id);
     const appts = can(ctx, 'appointment.view') ? patientAppointments(ctx, p.id) : [];
     const account = can(ctx, 'billing.view') ? patientAccount(ctx, p.id) : null;
+    const elsewhere = account ? patientBalanceElsewhere(ctx, p.id) : null;
     const tz = ctx.branch.timezone;
     const row = (label: string, value: unknown) => (value ? html`<dt>${label}</dt><dd>${value}</dd>` : '');
     return sendPage(reply, page({
@@ -119,7 +121,11 @@ export function registerPatientRoutes(app: FastifyInstance, _deps: Deps): void {
           <div class="kpi"><span>Charges (issued invoices)</span><strong>${money(ctx, account.charges_minor)}</strong></div>
           <div class="kpi"><span>Collected (net of reversals)</span><strong>${money(ctx, account.collected_minor)}</strong></div>
           <div class="kpi ${account.outstanding_minor > 0 ? 'due' : ''}"><span>Outstanding balance</span><strong>${money(ctx, account.outstanding_minor)}</strong></div>
-        </div><p class="hint">Balances cover invoices at ${ctx.branch.name}. Other branches' balances appear once multi-branch sync is enabled (Milestone 2).</p>` : ''}
+        </div>${elsewhere && elsewhere.branches.length
+          ? html`<div class="flash warn">Also outstanding at other branches: <strong>${money(ctx, elsewhere.outstanding_minor)}</strong> —
+              ${elsewhere.branches.map((b, i) => html`${i ? '; ' : ''}${b.name} ${money(ctx, b.outstanding_minor)} (${b.freshness === 'stale' || b.freshness === 'no_data' ? 'may be out of date, ' : ''}as of ${b.asOf ? fmtDateTime(b.asOf, ctx.branch.timezone) : 'unknown'})`)}.
+              Payments for those invoices are taken at the branch that issued them.</div>`
+          : html`<p class="hint">Amounts above are for ${ctx.branch.name}.</p>`}` : ''}
       <div class="cols">
         <section><h2>Details</h2><dl class="dl">
           ${row('Date of birth', fmtDate(p.date_of_birth))}${row('Sex', p.sex)}${row('Phone', p.phone)}${row('Email', p.email)}${row('Address', p.address)}

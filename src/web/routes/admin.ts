@@ -10,7 +10,7 @@ import { PAYMENT_METHODS } from '../../domain/billing.js';
 import { audit } from '../../domain/context.js';
 import { html } from '../../lib/core.js';
 import { fmtDateTime, isValidDate, minutesToHHMM, todayIn } from '../../lib/time.js';
-import { csrfInput, emptyState, money, page } from '../ui.js';
+import { cloudPill, csrfInput, emptyState, money, page } from '../ui.js';
 import { flashFromQuery, queryOf, requireAuth, sendPage, type Deps } from '../app.js';
 
 export function registerReportAndAdminRoutes(app: FastifyInstance, { db, cfg }: Deps): void {
@@ -60,6 +60,8 @@ export function registerReportAndAdminRoutes(app: FastifyInstance, { db, cfg }: 
     requirePerm(ctx, 'backup.view');
     const b = backupOverview(db, cfg);
     const s = syncStatus(db);
+    const remote = db.prepare('SELECT r.*, b.name FROM remote_branch_status r LEFT JOIN branches b ON b.id = r.branch_id ORDER BY b.code').all() as { branch_id: string; name: string | null; last_event_at: string | null; last_seen_at: string | null; app_version: string | null }[];
+    const rejected = db.prepare(`SELECT created_at, entity_type, op, last_error FROM outbox_events WHERE status = 'failed' ORDER BY seq DESC LIMIT 20`).all() as { created_at: string; entity_type: string; op: string; last_error: string }[];
     const hours = branchHours(db, ctx.branch.id);
     const tz = ctx.branch.timezone;
     const days = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -78,9 +80,20 @@ export function registerReportAndAdminRoutes(app: FastifyInstance, { db, cfg }: 
           <tbody>${b.runs.map((r) => html`<tr><td>${fmtDateTime(r.started_at, tz)}</td><td>${r.kind}</td><td><span class="badge st-${r.status === 'succeeded' ? 'completed' : r.status === 'failed' ? 'cancelled' : 'scheduled'}">${r.status}</span>${r.error ? html`<br><span class="muted">${r.error}</span>` : ''}</td>
             <td>${r.file_name ?? '—'}</td><td class="num">${r.size_bytes ? `${(r.size_bytes / 1024).toFixed(0)} KB` : ''}</td><td>${r.verified_at ? 'Test-restored ✓' : '—'}</td></tr>`)}</tbody></table>
         <p class="hint">Restoring is done on the server with <code>npm run restore</code> into a new, empty folder — it never overwrites current data. See docs/07-backup-recovery.md.</p></section>
-      <section class="card"><h2>Synchronization</h2>
-        <p>Cloud: <strong>${s.cloudConfigured ? 'configured' : 'not set up (Milestone 2)'}</strong> · Changes waiting to sync: <strong>${s.pending}</strong> · Failed: ${s.failed} · Last successful sync: ${s.lastSuccessAt ? fmtDateTime(s.lastSuccessAt, tz) : 'never'}</p>
-        <p class="hint">Every change at this branch is queued durably and will be sent once the cloud service is connected.</p></section>
+      <section class="card" id="sync"><h2>Synchronization</h2>
+        ${(() => { const c = cloudPill(s, tz); return html`<p><span class="pill ${c.cls}">${c.text}</span> ${c.title}</p>`; })()}
+        <dl class="dl"><dt>Cloud service</dt><dd>${s.cloudUrl ?? 'Not connected — see docs/11-cloud-setup.md'}</dd>
+          <dt>Waiting to send</dt><dd>${s.pending} change(s)${s.failed ? html` · <strong class="error-text">${s.failed} rejected</strong>` : ''}</dd>
+          <dt>Last successful sync</dt><dd>${s.lastSuccessAt ? fmtDateTime(s.lastSuccessAt, tz) : 'never'}</dd>
+          ${s.lastError ? html`<dt>Last problem</dt><dd>${s.lastError}</dd>` : ''}
+          <dt>Records to review</dt><dd>${s.conflicts ? html`<a href="/sync/conflicts">${s.conflicts} open conflict(s)</a>` : 'none'}</dd></dl>
+        ${s.cloudConfigured && can(ctx, 'backup.run') ? html`<form method="post" action="/admin/sync-now" class="inline">${csrfInput(a.csrf)}<button>Sync now</button></form>` : ''}
+        ${remote.length ? html`<h3>Branches</h3><table class="table compact"><thead><tr><th>Branch</th><th>Last data received by cloud</th><th>Last contact with cloud</th><th>Version</th></tr></thead>
+          <tbody>${remote.map((r) => html`<tr><td>${r.name ?? r.branch_id}${r.branch_id === ctx.branch.id ? ' (this branch)' : ''}</td><td>${r.last_event_at ? fmtDateTime(r.last_event_at, tz) : 'never'}</td>
+            <td>${r.last_seen_at ? fmtDateTime(r.last_seen_at, tz) : 'never'}</td><td>${r.app_version ?? ''}</td></tr>`)}</tbody></table>` : ''}
+        ${rejected.length ? html`<h3>Changes the cloud rejected</h3><p class="hint">These stay on this server but were not shared. Contact support with the reasons below.</p>
+          <table class="table compact"><tbody>${rejected.map((r) => html`<tr><td>${fmtDateTime(r.created_at, tz)}</td><td>${r.entity_type} ${r.op}</td><td>${r.last_error}</td></tr>`)}</tbody></table>` : ''}
+        <p class="hint">Every change at this branch is saved here first and queued durably; it is sent whenever the cloud is reachable. Internet outages never stop local work.</p></section>
       <section class="card"><h2>Branch setup</h2><p class="hint">Read-only in this version; editing screens are planned (see docs/09-scope-and-limitations.md).</p>
         <dl class="dl"><dt>Organization</dt><dd>${ctx.org.name} · currency ${ctx.org.currency} · tooth numbering ${ctx.org.tooth_numbering}</dd>
           <dt>Branch</dt><dd>${ctx.branch.name} (${ctx.branch.code}) · ${ctx.branch.address} · ${ctx.branch.phone} · ${tz}</dd>

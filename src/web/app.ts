@@ -12,12 +12,13 @@ import { loadSession, type SessionRow } from '../auth/auth.js';
 import type { Ctx } from '../domain/context.js';
 import { syncStatus } from '../domain/outbox.js';
 import { AppError, html, randomToken } from '../lib/core.js';
-import { page, setDemoBanner } from './ui.js';
+import { cloudPill, page, setDemoBanner } from './ui.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPatientRoutes } from './routes/patients.js';
 import { registerAppointmentRoutes } from './routes/appointments.js';
 import { registerBillingRoutes } from './routes/billing.js';
 import { registerReportAndAdminRoutes } from './routes/admin.js';
+import { registerSyncRoutes } from './routes/sync.js';
 
 export const SESSION_COOKIE = 'dentalsys_session';
 export const PRELOGIN_COOKIE = 'dentalsys_prelogin';
@@ -166,8 +167,8 @@ export async function buildApp(deps: Deps, opts: { logger?: boolean } = {}): Pro
       app_version: APP_VERSION,
       schema_version: schemaVersion(db),
       sync_protocol_version: SYNC_PROTOCOL_VERSION,
-      cloud: { configured: s.cloudConfigured, state: s.cloudConfigured ? 'unknown' : 'not_configured' },
-      sync: { pending: s.pending, failed: s.failed, last_success_at: s.lastSuccessAt },
+      cloud: { configured: s.cloudConfigured, state: s.cloudState, offline_since: s.offlineSince, pill: cloudPill(s, req.auth.ctx.branch.timezone) },
+      sync: { pending: s.pending, failed: s.failed, conflicts: s.conflicts, last_success_at: s.lastSuccessAt },
     };
   });
 
@@ -176,6 +177,7 @@ export async function buildApp(deps: Deps, opts: { logger?: boolean } = {}): Pro
   registerAppointmentRoutes(app, deps);
   registerBillingRoutes(app, deps);
   registerReportAndAdminRoutes(app, deps);
+  registerSyncRoutes(app, deps);
   return app;
 }
 

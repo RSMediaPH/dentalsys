@@ -18,7 +18,13 @@
     "restore": "tsx src/cli/restore.ts",
     "backup:keygen": "tsx src/cli/backup-keygen.ts",
     "test": "node --import tsx --test --test-concurrency=1 test/*.test.ts",
-    "e2e": "tsx scripts/e2e-offline-demo.ts"
+    "e2e": "tsx scripts/e2e-offline-demo.ts",
+    "cloud:dev": "tsx src/cloud/server.ts",
+    "cloud:start": "node dist/src/cloud/server.js",
+    "cloud:admin": "tsx src/cloud/admin-cli.ts",
+    "cloud:connect": "tsx src/cli/cloud-connect.ts",
+    "branch:admin": "tsx src/cli/branch-admin.ts",
+    "demo:multibranch": "tsx scripts/multibranch-setup.ts"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",

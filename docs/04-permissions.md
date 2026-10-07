@@ -10,6 +10,11 @@ Authorization is based on **explicit permission codes**. Roles are named bundles
 
 Organization or branch IDs in URLs or form fields are **never trusted** as the source of scope.
 
+**Multi-branch rules (Milestone 2):**
+* A clinic server lets staff work only at **its own branch**, even if they are assigned to several. Other branches' records on that server are read-only copies.
+* Booking a patient registered at another branch is allowed with `appointment.manage` (after finding them in minimal search results). It links the patient to this branch, is audited as `patient.linked_to_branch`, and then allows `patient.view` here.
+* Resolving a synchronization conflict needs `patient.edit`; conflicts in medical fields also need `patient.medical.edit`, and their values are hidden from users without `patient.medical.view`.
+
 ## Scope
 
 * **Branch-scoped** permissions apply to the active branch only (switching branch requires being assigned to it).

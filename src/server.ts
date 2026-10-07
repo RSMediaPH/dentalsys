@@ -8,6 +8,7 @@ import { buildApp } from './web/app.js';
 import { runBackup } from './backup/backup.js';
 import type { Config } from './config.js';
 import { demoResetDue, ensureDemoData, wipeDemoData } from './demo.js';
+import { startSyncLoop } from './sync/worker.js';
 
 if (fs.existsSync(path.join(PROJECT_ROOT, '.env'))) process.loadEnvFile(path.join(PROJECT_ROOT, '.env'));
 
@@ -48,6 +49,8 @@ async function main() {
   const app = await buildApp({ db, cfg });
   if (seeded) app.log.info('Demo mode: created fresh synthetic demo data');
   const timer = startBackupScheduler(db, cfg, (m) => app.log.info(m));
+  // Cloud sync runs in the background when this server is connected; it never blocks local work.
+  const sync = startSyncLoop(db, (m) => app.log.info(m), Number(process.env.SYNC_INTERVAL_SECONDS ?? 15));
   // Hosted demo: after the nightly reset time, wipe and exit; the platform restarts us and we reseed.
   const demoTimer = cfg.demoResetDailyAt
     ? setInterval(async () => {
@@ -60,6 +63,7 @@ async function main() {
     : null;
   const shutdown = async () => {
     if (timer) clearInterval(timer);
+    sync.stop();
     if (demoTimer) clearInterval(demoTimer);
     await app.close();
     db.close();

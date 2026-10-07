@@ -33,6 +33,8 @@ Status: **Milestone 0, agreed defaults** (2026-10-07). Change any of these by ed
 | D9 | **Transactional outbox** written in the same SQLite transaction as each business change | Guarantees "the change happened" ⇔ "a sync event exists". Sync delivery itself is Milestone 2. | — |
 | D10 | Passwords hashed with **Argon2id** (`argon2` package); sessions are opaque random tokens stored hashed in the database | Maintained, recommended algorithm; sessions can be revoked server-side immediately. | — |
 | D11 | Backups: SQLite online backup + attachments → **AES-256-GCM encrypted archive** with a key file held by the clinic | Encrypted at rest, restorable into a clean directory, verifiable. | — |
+| D13 | **Supabase used only as managed PostgreSQL** for the cloud (no Supabase Auth/Data API); PGlite for tests and local demos | Keeps the cloud portable to any PostgreSQL host; the same authorization code protects every organization; real PostgreSQL behaviour in tests without installing anything. | A feature needs Supabase-specific services |
+| D14 | **Hosting on Render** (Singapore): online demo (`render.yaml`) and cloud service (`deploy/render-cloud.yaml`) | Simple dashboard setup, persistent disk for the demo, always-on service for sync. | Cost or region needs change |
 | D12 | Exact-pinned npm dependencies + committed `package-lock.json`; Node version in `.nvmrc` | Reproducible installs. | Each release (dependency review) |
 
 Tested with **Node 22.16.0** on macOS arm64. Node 22 leaves maintenance in April 2027; plan to move the supported runtime to **Node 24 LTS** before the pilot (Milestone 5) and re-run the full test suite on Windows 10/11, which is what most clinic PCs run.

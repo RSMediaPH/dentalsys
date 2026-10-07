@@ -41,11 +41,19 @@ export function recordEvent(ctx: Ctx, e: OutboxEventInput): string {
   return id;
 }
 
+export type CloudState = 'not_configured' | 'online' | 'offline' | 'error' | 'update_required' | 'revoked';
+
 export interface SyncStatus {
   cloudConfigured: boolean;
+  cloudState: CloudState;
   pending: number;
   failed: number;
+  conflicts: number;
   lastSuccessAt: string | null;
+  lastAttemptAt: string | null;
+  offlineSince: string | null;
+  lastError: string | null;
+  cloudUrl: string | null;
 }
 
 export function syncStatus(db: DB): SyncStatus {
@@ -55,11 +63,18 @@ export function syncStatus(db: DB): SyncStatus {
   const counts = db
     .prepare(`SELECT SUM(status IN ('pending','sent')) AS pending, SUM(status = 'failed') AS failed FROM outbox_events`)
     .get() as { pending: number | null; failed: number | null };
+  const configured = state.cloud_configured === 'true';
   return {
-    cloudConfigured: state.cloud_configured === 'true',
+    cloudConfigured: configured,
+    cloudState: configured ? ((state.cloud_state as CloudState) ?? 'offline') : 'not_configured',
     pending: counts.pending ?? 0,
     failed: counts.failed ?? 0,
+    conflicts: db.prepare(`SELECT COUNT(*) FROM sync_conflicts WHERE status = 'open'`).pluck().get() as number,
     lastSuccessAt: state.last_success_at ?? null,
+    lastAttemptAt: state.last_attempt_at ?? null,
+    offlineSince: state.offline_since ?? null,
+    lastError: state.last_error ?? null,
+    cloudUrl: state.cloud_url ?? null,
   };
 }
 

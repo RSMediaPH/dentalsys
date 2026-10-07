@@ -1,7 +1,8 @@
 // Page shell and small UI components (server-rendered, accessible, no external assets).
 import { APP_VERSION } from '../config.js';
 import { can, type Ctx } from '../domain/context.js';
-import { syncStatus } from '../domain/outbox.js';
+import { syncStatus, type SyncStatus } from '../domain/outbox.js';
+import { fmtDateTime } from '../lib/time.js';
 import { formatMoney, html, type SafeHtml } from '../lib/core.js';
 import { ROLE_LABELS } from '../auth/permissions.js';
 
@@ -24,6 +25,7 @@ const NAV: { key: string; label: string; href: string; perm: Parameters<typeof c
   { key: 'appointments', label: 'Calendar', href: '/appointments', perm: 'appointment.view' },
   { key: 'billing', label: 'Billing', href: '/invoices', perm: 'billing.view' },
   { key: 'reports', label: 'Collections', href: '/reports/collections', perm: 'report.collections.view' },
+  { key: 'organization', label: 'Organization', href: '/reports/organization', perm: 'report.org.view' },
   { key: 'admin', label: 'Admin', href: '/admin', perm: 'backup.view' },
 ];
 
@@ -51,8 +53,9 @@ ${ctx
   </nav>
   <div class="status" aria-label="Connection status">
     <span class="pill ok" id="st-local" title="Connection from this computer to the clinic server">● Clinic server</span>
-    <span class="pill ${sync!.cloudConfigured ? 'ok' : 'muted'}" id="st-cloud" title="Internet / cloud synchronization">${sync!.cloudConfigured ? '● Cloud' : '○ Cloud: not set up'}</span>
-    <span class="pill ${sync!.failed ? 'error' : 'muted'}" id="st-sync" title="Changes waiting to be sent to the cloud. Last successful sync: ${sync!.lastSuccessAt ?? 'never'}">⇅ ${sync!.pending} pending${sync!.failed ? html` · ${sync!.failed} failed` : ''}</span>
+    ${(() => { const c = cloudPill(sync!, ctx.branch.timezone); return html`<span class="pill ${c.cls}" id="st-cloud" title="${c.title}">${c.text}</span>`; })()}
+    <span class="pill ${sync!.failed ? 'error' : 'muted'}" id="st-sync" title="Changes waiting to be sent to the cloud. Last successful sync: ${sync!.lastSuccessAt ? fmtDateTime(sync!.lastSuccessAt, ctx.branch.timezone) : 'never'}">⇅ ${sync!.pending} pending${sync!.failed ? html` · ${sync!.failed} failed` : ''}</span>
+    ${sync!.conflicts && can(ctx, 'patient.edit') ? html`<a class="pill warn" id="st-conflicts" href="/sync/conflicts">⚠ ${sync!.conflicts} to review</a>` : ''}
   </div>
   <div class="who">
     <a href="/switch-branch" title="Switch branch">${ctx.org.name} · <strong>${ctx.branch.name}</strong></a>
@@ -119,4 +122,17 @@ export function emptyState(title: string, text: string, action?: SafeHtml): Safe
 
 export function statusBadge(status: string, label: string): SafeHtml {
   return html`<span class="badge st-${status}">${label}</span>`;
+}
+
+/** Header label for the internet/cloud connection (also used by /api/status for live updates). */
+export function cloudPill(s: SyncStatus, tz: string): { cls: string; text: string; title: string } {
+  const since = s.offlineSince ? fmtDateTime(s.offlineSince, tz) : '';
+  switch (s.cloudState) {
+    case 'not_configured': return { cls: 'muted', text: '○ Cloud: not set up', title: 'This clinic server is not connected to the DentalSys cloud. Everything works locally.' };
+    case 'online': return { cls: 'ok', text: '● Cloud', title: `Connected. Last sync ${s.lastSuccessAt ? fmtDateTime(s.lastSuccessAt, tz) : 'never'}.` };
+    case 'offline': return { cls: 'warn', text: '● Cloud offline', title: `No internet or cloud unavailable since ${since}. Local work continues; changes are queued.` };
+    case 'update_required': return { cls: 'error', text: '● Update required', title: 'The cloud needs a newer DentalSys version. Local work continues; changes are queued.' };
+    case 'revoked': return { cls: 'error', text: '● Cloud access revoked', title: 'This server is no longer authorized to sync. Contact support. Local work continues.' };
+    default: return { cls: 'error', text: '● Sync error', title: `Sync problem since ${since}: ${s.lastError ?? ''}. Local work continues; changes are queued.` };
+  }
 }

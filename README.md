@@ -1,8 +1,8 @@
 # DentalSys
 
-Branch-local dental clinic management with cloud coordination. Each clinic branch runs its own server on the clinic network, so registration, scheduling, billing and payments keep working during internet outages. A cloud service (Milestone 2) will synchronize branches and provide consolidated reports.
+Branch-local dental clinic management with cloud coordination. Each clinic branch runs its own server on the clinic network, so registration, scheduling, billing and payments keep working during internet outages. A cloud service (PostgreSQL, e.g. Supabase) synchronizes branches and powers consolidated reports.
 
-> **Status:** Milestone 1 — a working single-branch vertical slice for development and evaluation. **Not production-ready.** Synthetic data only. See [docs/09-scope-and-limitations.md](docs/09-scope-and-limitations.md).
+> **Status:** Milestones 1–2 — single-branch clinic server plus multi-branch cloud sync, for development and evaluation. **Not production-ready.** Synthetic data only. See [docs/09-scope-and-limitations.md](docs/09-scope-and-limitations.md).
 
 ## Requirements
 
@@ -72,6 +72,7 @@ Restore never overwrites existing data. Read [docs/07-backup-recovery.md](docs/0
 | [08 Deployment & commercial](docs/08-deployment-and-commercial.md) | Installer/update plan, enrollment, entitlements, licensing proposal |
 | [09 Scope & limitations](docs/09-scope-and-limitations.md) | What works, offline scope table, known gaps |
 | [10 Online demo](docs/10-online-demo.md) | Hosting the synthetic-data demo on Render |
+| [11 Cloud & multi-branch](docs/11-cloud-setup.md) | Supabase + Render cloud service, connecting branches, local multi-branch demo |
 
 ## Project layout
 
@@ -83,7 +84,9 @@ src/
   domain/              business rules: patients, appointments, billing, reports, outbox, orgs
   backup/              encrypted backup + verified restore
   web/                 Fastify app, pages (server-rendered HTML)
-  cli/                 migrate, seed, backup, restore, key generation
+  cli/                 migrate, seed, backup, restore, key generation, cloud connect, branch setup
+  sync/                branch-side sync: protocol, outbox upload, change download/apply
+  cloud/               cloud coordination service (PostgreSQL / Supabase)
 public/                CSS and a small progressive-enhancement script
 test/                  automated tests (node:test)
 scripts/               end-to-end workflow check

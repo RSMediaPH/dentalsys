@@ -1,6 +1,6 @@
 # 05 — Synchronization design, record ownership and conflict policy
 
-Status: **design agreed in Milestone 0; outbox implemented in Milestone 1; transport, cloud ingestion and download in Milestone 2.**
+Status: **implemented in Milestone 2** (outbox since Milestone 1). Operator setup: `11-cloud-setup.md`. Tests: `test/sync.test.ts`.
 
 ## Principles
 
@@ -86,8 +86,13 @@ Files are content-addressed (SHA-256). Events reference the hash; the file is up
 
 `sync_conflicts` table: entity, field(s), local value, incoming value, versions, detected_at, status (`open|resolved`), resolved_by, resolution. Visible as a count in the header for users with the relevant permission; resolving creates a normal versioned update event.
 
-## Implemented in Milestone 1
+## Implementation notes (Milestone 2)
 
-* `outbox_events` table and `recordEvent()` called inside every write transaction.
-* Header shows pending sync count and "Cloud: not configured".
-* Tests check that a business change and its event commit or roll back together.
+* **Cloud database:** PostgreSQL (Supabase in production; PGlite, an in-process PostgreSQL, in tests and local demos). Schema: `src/cloud/migrations/`.
+* **Change feed ordering:** uploads for one organization are processed one at a time (`pg_advisory_xact_lock`), so change cursors become visible in order and a reader can never skip a change.
+* **Patient conflicts:** the cloud keeps a version per field and which server last changed it. An edit whose `base_cloud_version` is older than a field's version, made by a different server, with a different value, becomes a conflict (kept value + incoming value). Consecutive edits from the same server never conflict with each other.
+* **Applying a patient state:** a branch does not overwrite a patient that has local edits still waiting to upload. The cloud sends the merged state after processing them.
+* **First connection of an existing branch:** its organization records are queued first, then its full history in the original order (same event IDs). Older events are given their author from the records themselves.
+* **Branch-owned records** are claimed by the first event (`entity_owners`, keyed without organization so an ID can never be claimed twice). Later changes from any other branch are rejected and shown on that server's Admin page.
+* **Unknown change kinds** stop the download (state "error") instead of being skipped, so a newer cloud never causes silent data loss on an older branch.
+* **Not yet:** patient merge workflow, attachment sync (M3), remote access through the cloud, cloud backup copies, compaction of the change feed, cloud-side admin web UI (CLI for now).
