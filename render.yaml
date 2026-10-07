@@ -1,0 +1,35 @@
+# Render Blueprint for the hosted DentalSys DEMO (synthetic data only).
+# Render → New → Blueprint → pick this repository. You will be asked for DEMO_PASSWORD.
+services:
+  - type: web
+    name: dentalsys-demo
+    runtime: node
+    region: singapore
+    plan: starter            # paid plan required for a persistent disk
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    disk:
+      name: dentalsys-demo-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /var/data
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_RESET_DAILY_AT
+        value: "03:00"       # Manila time; testers' changes are wiped nightly
+      - key: BACKUP_DAILY_AT
+        value: ""            # demo data is disposable; no scheduled backups
+      - key: COOKIE_SECURE
+        value: "true"        # Render serves HTTPS in front of the app
+      - key: TRUST_PROXY
+        value: "true"        # real client IPs for login throttling
+      - key: DEMO_PASSWORD
+        sync: false          # you type this in the Render dashboard; never commit it

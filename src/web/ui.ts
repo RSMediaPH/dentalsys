@@ -14,6 +14,10 @@ export interface PageOpts {
   body: SafeHtml;
 }
 
+let demoBanner = false;
+/** Called once at startup from the app config. */
+export const setDemoBanner = (on: boolean) => { demoBanner = on; };
+
 const NAV: { key: string; label: string; href: string; perm: Parameters<typeof can>[1] }[] = [
   { key: 'today', label: 'Today', href: '/', perm: 'appointment.view' },
   { key: 'patients', label: 'Patients', href: '/patients', perm: 'patient.view' },
@@ -38,6 +42,7 @@ export function page(o: PageOpts): string {
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <div id="conn-banner" class="conn-banner" role="alert" hidden></div>
+${demoBanner ? html`<div class="demo-banner" role="note"><strong>TEST SYSTEM</strong> — synthetic demo data only. Do not enter real patient information.</div>` : ''}
 ${ctx
   ? html`<header class="topbar">
   <div class="brand"><span class="logo" aria-hidden="true">◆</span> DentalSys</div>

@@ -12,7 +12,7 @@ import { loadSession, type SessionRow } from '../auth/auth.js';
 import type { Ctx } from '../domain/context.js';
 import { syncStatus } from '../domain/outbox.js';
 import { AppError, html, randomToken } from '../lib/core.js';
-import { page } from './ui.js';
+import { page, setDemoBanner } from './ui.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPatientRoutes } from './routes/patients.js';
 import { registerAppointmentRoutes } from './routes/appointments.js';
@@ -76,12 +76,14 @@ export const flashFromQuery = (req: FastifyRequest) => {
 
 export async function buildApp(deps: Deps, opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
   const { db, cfg } = deps;
+  setDemoBanner(cfg.demoMode);
   const https = cfg.tlsCertFile && cfg.tlsKeyFile
     ? { key: fs.readFileSync(cfg.tlsKeyFile), cert: fs.readFileSync(cfg.tlsCertFile) }
     : null;
   const app = Fastify({
     ...(https ? { https } : {}),
-    trustProxy: cfg.trustProxy,
+    // Trust exactly one proxy hop (the hosting platform), so clients cannot spoof their IP via X-Forwarded-For.
+    trustProxy: cfg.trustProxy ? (_addr: string, hop: number) => hop < 1 : false,
     bodyLimit: 256 * 1024,
     logger: opts.logger === false ? false : {
       level: 'info',
@@ -96,10 +98,11 @@ export async function buildApp(deps: Deps, opts: { logger?: boolean } = {}): Pro
       directives: {
         defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"], imgSrc: ["'self'", 'data:'],
         formAction: ["'self'"], frameAncestors: ["'none'"], objectSrc: ["'none'"], baseUri: ["'self'"],
-        upgradeInsecureRequests: https ? [] : null,
+        upgradeInsecureRequests: https || cfg.cookieSecure ? [] : null,
       },
     },
-    hsts: https ? { maxAge: 15552000 } : false,
+    // HSTS when served over HTTPS directly or behind a TLS-terminating host (COOKIE_SECURE=true).
+    hsts: https || cfg.cookieSecure ? { maxAge: 15552000 } : false,
     crossOriginEmbedderPolicy: false,
   });
   await app.register(cookie);
@@ -107,6 +110,7 @@ export async function buildApp(deps: Deps, opts: { logger?: boolean } = {}): Pro
   await app.register(fstatic, { root: path.join(PROJECT_ROOT, 'public'), prefix: '/static/', maxAge: '1h' });
 
   app.decorateRequest('auth', null);
+  if (cfg.demoMode) app.addHook('onSend', async (_req, reply) => { reply.header('X-Robots-Tag', 'noindex, nofollow'); });
 
   app.addHook('onRequest', async (req) => {
     const token = req.cookies[SESSION_COOKIE];

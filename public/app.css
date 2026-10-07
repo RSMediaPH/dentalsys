@@ -36,6 +36,7 @@ code { font-size: .85em; }
 .pill.muted { color: var(--muted); }
 .who { display: flex; gap: 10px; align-items: center; font-size: .9rem; flex-wrap: wrap; }
 .who a { text-decoration: none; color: var(--text); }
+.demo-banner { background: #fff4dc; color: #8a5a00; text-align: center; padding: 6px 20px; font-size: .9rem; border-bottom: 1px solid #f0d9a8; }
 .conn-banner { padding: 10px 20px; font-weight: 600; }
 .conn-banner.error { background: var(--danger); color: #fff; }
 .conn-banner.warn { background: var(--warn-soft); color: var(--warn); }

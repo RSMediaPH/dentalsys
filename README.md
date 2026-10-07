@@ -71,6 +71,7 @@ Restore never overwrites existing data. Read [docs/07-backup-recovery.md](docs/0
 | [07 Backup & recovery](docs/07-backup-recovery.md) | Encryption, verification, restore procedure, key responsibilities |
 | [08 Deployment & commercial](docs/08-deployment-and-commercial.md) | Installer/update plan, enrollment, entitlements, licensing proposal |
 | [09 Scope & limitations](docs/09-scope-and-limitations.md) | What works, offline scope table, known gaps |
+| [10 Online demo](docs/10-online-demo.md) | Hosting the synthetic-data demo on Render |
 
 ## Project layout
 

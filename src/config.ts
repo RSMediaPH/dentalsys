@@ -30,6 +30,8 @@ export interface Config {
   sessionAbsoluteHours: number;
   cookieSecure: boolean;
   trustProxy: boolean;
+  demoMode: boolean; // shows a 'test system — synthetic data only' banner on every page
+  demoResetDailyAt: string | null; // demo only: wipe and reseed daily at HH:mm (organization timezone)
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -51,5 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sessionAbsoluteHours: Number(env.SESSION_ABSOLUTE_HOURS ?? 12),
     cookieSecure: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : Boolean(tlsCertFile),
     trustProxy: env.TRUST_PROXY === 'true',
+    demoMode: env.DEMO_MODE === 'true',
+    demoResetDailyAt: env.DEMO_MODE === 'true' && /^\d{2}:\d{2}$/.test(env.DEMO_RESET_DAILY_AT ?? '') ? env.DEMO_RESET_DAILY_AT! : null,
   };
 }

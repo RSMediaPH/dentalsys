@@ -7,6 +7,7 @@ import { openDatabase, type DB } from './db/db.js';
 import { buildApp } from './web/app.js';
 import { runBackup } from './backup/backup.js';
 import type { Config } from './config.js';
+import { demoResetDue, ensureDemoData, wipeDemoData } from './demo.js';
 
 if (fs.existsSync(path.join(PROJECT_ROOT, '.env'))) process.loadEnvFile(path.join(PROJECT_ROOT, '.env'));
 
@@ -43,10 +44,23 @@ async function main() {
   const cfg = loadConfig();
   fs.mkdirSync(cfg.attachmentsDir, { recursive: true });
   const db = openDatabase(cfg.dbFile);
+  const seeded = await ensureDemoData(db, cfg, process.env.DEMO_PASSWORD);
   const app = await buildApp({ db, cfg });
+  if (seeded) app.log.info('Demo mode: created fresh synthetic demo data');
   const timer = startBackupScheduler(db, cfg, (m) => app.log.info(m));
+  // Hosted demo: after the nightly reset time, wipe and exit; the platform restarts us and we reseed.
+  const demoTimer = cfg.demoResetDailyAt
+    ? setInterval(async () => {
+        if (!demoResetDue(db, cfg)) return;
+        app.log.info('Demo mode: nightly reset — wiping demo data and restarting');
+        await app.close();
+        wipeDemoData(db, cfg);
+        process.exit(0);
+      }, 60_000)
+    : null;
   const shutdown = async () => {
     if (timer) clearInterval(timer);
+    if (demoTimer) clearInterval(demoTimer);
     await app.close();
     db.close();
     process.exit(0);

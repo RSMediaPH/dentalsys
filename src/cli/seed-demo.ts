@@ -14,10 +14,11 @@ import { addLine, createDraftInvoice, issueInvoice, recordPayment } from '../dom
 import { newId } from '../lib/core.js';
 
 export const DEMO_DOMAIN = 'demo.test';
+export const DEMO_ORG_NAME = 'Sample Dental Group (DEMO)';
 
 export async function seedDemo(db: DB, password: string): Promise<{ ctxs: Record<string, Ctx> }> {
   if (db.prepare('SELECT 1 FROM organizations').get()) throw new Error('Database already contains an organization; refusing to seed.');
-  const org = createOrganization(db, { name: 'Sample Dental Group (DEMO)' });
+  const org = createOrganization(db, { name: DEMO_ORG_NAME });
   const branch = createBranch(db, org.id, { code: 'MKT', name: 'Demo Branch Main', address: '100 Example Avenue, Unit 2 (fictitious)', phone: '+63 2 0000 0000', email: `main@${DEMO_DOMAIN}` });
   const chairs = ['Chair 1', 'Chair 2', 'Chair 3'].map((n) => createOperatory(db, org.id, branch.id, n));
 
