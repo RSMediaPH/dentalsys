@@ -43,4 +43,4 @@ Tested with **Node 22.16.0** on macOS arm64. Node 22 leaves maintenance in April
 2. **Cloud hosting region/provider** — default: decide in Milestone 2; prefer a provider with a Singapore region for latency from the Philippines and a data-processing agreement. Nothing is deployed without your authorization.
 3. **Overpayment / patient credit** — default for M1: a payment cannot exceed the invoice's outstanding balance (no patient credit balances). Credits/refunds come with credit notes later.
 4. **Who may reverse a payment** — default: branch manager and owner only, reason required.
-5. **Product name** — "Dental Clinic Manager" is a working name; no brand assets are used.
+5. **Product name** — Name chosen: **DentalSys** (2026-10-07). No logo or brand assets yet; check trademark availability before launch.

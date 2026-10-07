@@ -19,8 +19,8 @@ import { registerAppointmentRoutes } from './routes/appointments.js';
 import { registerBillingRoutes } from './routes/billing.js';
 import { registerReportAndAdminRoutes } from './routes/admin.js';
 
-export const SESSION_COOKIE = 'dcm_session';
-export const PRELOGIN_COOKIE = 'dcm_prelogin';
+export const SESSION_COOKIE = 'dentalsys_session';
+export const PRELOGIN_COOKIE = 'dentalsys_prelogin';
 
 declare module 'fastify' {
   interface FastifyRequest {

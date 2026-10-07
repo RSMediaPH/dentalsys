@@ -4,7 +4,7 @@ Synchronization is **not** a backup: a mistake syncs everywhere. Backups are sep
 
 ## What a backup contains
 
-An `.dcmbak` archive holds a consistent online snapshot of the branch database (taken with SQLite's backup API while the clinic keeps working) plus every file under `data/attachments/`, with a manifest of SHA-256 checksums and record counts. The archive is encrypted with AES-256-GCM in 1 MB chunks; reordering, truncation, tampering or a wrong key are all detected on restore.
+An `.dsbak` archive holds a consistent online snapshot of the branch database (taken with SQLite's backup API while the clinic keeps working) plus every file under `data/attachments/`, with a manifest of SHA-256 checksums and record counts. The archive is encrypted with AES-256-GCM in 1 MB chunks; reordering, truncation, tampering or a wrong key are all detected on restore.
 
 ## Keys — responsibilities
 
@@ -22,7 +22,7 @@ An `.dcmbak` archive holds a consistent online snapshot of the branch database (
 ## Restore (non-destructive)
 
 ```bash
-npm run restore -- data/backups/<file>.dcmbak /path/to/new-empty-folder
+npm run restore -- data/backups/<file>.dsbak /path/to/new-empty-folder
 ```
 
 The restore refuses any non-empty target, so it can never overwrite the current data. It verifies everything above and prints counts. To switch the clinic to the restored data:

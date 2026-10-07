@@ -11,7 +11,7 @@ import { PROJECT_ROOT } from '../src/config.js';
 
 const PORT = 18000 + Math.floor(Math.random() * 1000);
 const BASE = `http://127.0.0.1:${PORT}`;
-const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'dcm-e2e-'));
+const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'dentalsys-e2e-'));
 const PASSWORD = 'e2e-demo-password-1';
 const env = { ...process.env, DATA_DIR: DATA, PORT: String(PORT), HOST: '127.0.0.1', BACKUP_DAILY_AT: '', DEMO_PASSWORD: PASSWORD,
   // Any accidental outbound HTTP(S) would go to a dead proxy and fail loudly.

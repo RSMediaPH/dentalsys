@@ -1,4 +1,4 @@
-// Usage: npm run restore -- <archive.dcmbak> <empty-target-dir> [--key <keyfile>]
+// Usage: npm run restore -- <archive.dsbak> <empty-target-dir> [--key <keyfile>]
 import { loadConfig } from '../config.js';
 import { restoreBackup } from '../backup/backup.js';
 const args = process.argv.slice(2);
@@ -6,7 +6,7 @@ const keyIdx = args.indexOf('--key');
 const keyFile = keyIdx >= 0 ? args.splice(keyIdx, 2)[1]! : loadConfig().backupKeyFile;
 const [archive, target] = args;
 if (!archive || !target) {
-  console.error('Usage: npm run restore -- <archive.dcmbak> <empty-target-dir> [--key <keyfile>]');
+  console.error('Usage: npm run restore -- <archive.dsbak> <empty-target-dir> [--key <keyfile>]');
   process.exit(2);
 }
 try {

@@ -1,11 +1,11 @@
 // Encrypted backups and non-destructive restore.
 //
-// Archive (.dcmbak) = header + sequence of AES-256-GCM chunks.
-//   header (32 bytes): "DCMBAK01" | salt(16) | noncePrefix(8)
-//   key = HKDF-SHA256(masterKey, salt, "dcm-backup-v1")
+// Archive (.dsbak) = header + sequence of AES-256-GCM chunks.
+//   header (32 bytes): "DSYSBAK1" | salt(16) | noncePrefix(8)
+//   key = HKDF-SHA256(masterKey, salt, "dentalsys-backup-v1")
 //   chunk: final(1) | ctLen(u32BE) | ciphertext | tag(16); nonce = noncePrefix | u32BE(index);
 //          AAD = header | u32BE(index) | final  → reordering, truncation and tampering are all detected.
-// Plaintext inside = "DCMPLN01" | manifestLen(u32BE) | manifest JSON | file bytes in manifest order.
+// Plaintext inside = "DSYSPLN1" | manifestLen(u32BE) | manifest JSON | file bytes in manifest order.
 //
 // Restore never touches the live data directory: it extracts into an EMPTY target directory, verifies
 // checksums, SQLite integrity and record counts, and leaves switching over to the operator.
@@ -18,10 +18,10 @@ import type { Config } from '../config.js';
 import { listMigrations, type DB } from '../db/db.js';
 import { newId, nowIso } from '../lib/core.js';
 
-const MAGIC = Buffer.from('DCMBAK01');
-const PLAIN_MAGIC = Buffer.from('DCMPLN01');
+const MAGIC = Buffer.from('DSYSBAK1');
+const PLAIN_MAGIC = Buffer.from('DSYSPLN1');
 const CHUNK = 1024 * 1024;
-const KEY_PREFIX = 'dcm-backup-key-v1:';
+const KEY_PREFIX = 'dentalsys-backup-key-v1:';
 export const COUNTED_TABLES = ['patients', 'appointments', 'invoices', 'invoice_lines', 'payments', 'payment_reversals', 'audit_events', 'outbox_events'] as const;
 
 export class BackupError extends Error {}
@@ -43,7 +43,7 @@ export function readKeyFile(file: string): Buffer {
 const keyFingerprint = (key: Buffer) => crypto.createHash('sha256').update(key).digest('hex').slice(0, 16);
 
 function deriveKey(master: Buffer, salt: Buffer): Buffer {
-  return Buffer.from(crypto.hkdfSync('sha256', master, salt, 'dcm-backup-v1', 32));
+  return Buffer.from(crypto.hkdfSync('sha256', master, salt, 'dentalsys-backup-v1', 32));
 }
 const u32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32BE(n); return b; };
 
@@ -201,7 +201,7 @@ export async function runBackup(db: DB, cfg: Config, kind: 'scheduled' | 'manual
   fs.mkdirSync(cfg.backupDir, { recursive: true });
   const stamp = nowIso().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
   const branchCode = (db.prepare('SELECT code FROM branches ORDER BY created_at LIMIT 1').pluck().get() as string | undefined) ?? 'NODE';
-  const fileName = `dcm-backup-${branchCode}-${stamp}-${id.slice(-8)}.dcmbak`;
+  const fileName = `dentalsys-backup-${branchCode}-${stamp}-${id.slice(-8)}.dsbak`;
   const finalPath = path.join(cfg.backupDir, fileName);
   const tmpPath = finalPath + '.partial';
   try {

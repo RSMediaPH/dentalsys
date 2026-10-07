@@ -138,12 +138,12 @@ describe('persistence, versions, backup and restore', () => {
     const { file } = await runBackup(f.db, f.cfg, 'manual', null);
     const bytes = fs.readFileSync(file);
     const dir = tempDir();
-    const tampered = path.join(dir, 't.dcmbak');
+    const tampered = path.join(dir, 't.dsbak');
     const flipped = Buffer.from(bytes);
     flipped[200] = flipped[200]! ^ 1;
     fs.writeFileSync(tampered, flipped);
     assert.throws(() => restoreBackup(tampered, f.cfg.backupKeyFile, path.join(dir, 'r1')), /authentication/);
-    const truncated = path.join(dir, 'tr.dcmbak');
+    const truncated = path.join(dir, 'tr.dsbak');
     fs.writeFileSync(truncated, bytes.subarray(0, bytes.length - 100));
     assert.throws(() => restoreBackup(truncated, f.cfg.backupKeyFile, path.join(dir, 'r2')), BackupError);
     const otherKey = path.join(dir, 'other.key');
@@ -156,6 +156,6 @@ describe('persistence, versions, backup and restore', () => {
     const cfg = { ...f.cfg, backupRetention: 2 };
     for (let i = 0; i < 3; i++) await runBackup(f.db, cfg, 'manual', null);
     applyRetention(f.db, cfg);
-    assert.equal(fs.readdirSync(cfg.backupDir).filter((x) => x.endsWith('.dcmbak')).length, 2);
+    assert.equal(fs.readdirSync(cfg.backupDir).filter((x) => x.endsWith('.dsbak')).length, 2);
   });
 });

@@ -1,4 +1,4 @@
-# Dental Clinic Manager (working name)
+# DentalSys
 
 Branch-local dental clinic management with cloud coordination. Each clinic branch runs its own server on the clinic network, so registration, scheduling, billing and payments keep working during internet outages. A cloud service (Milestone 2) will synchronize branches and provide consolidated reports.
 
@@ -52,7 +52,7 @@ npm run backup
 ```
 
 ```bash
-npm run restore -- data/backups/<file>.dcmbak /path/to/new-empty-folder
+npm run restore -- data/backups/<file>.dsbak /path/to/new-empty-folder
 ```
 
 Restore never overwrites existing data. Read [docs/07-backup-recovery.md](docs/07-backup-recovery.md) — especially the part about keeping a copy of the backup key.

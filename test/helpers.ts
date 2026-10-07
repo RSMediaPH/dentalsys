@@ -14,7 +14,7 @@ export const PASSWORD = 'test-password-123';
 export const MONDAY = '2030-01-07'; // a fixed future Monday, so tests do not depend on today's date
 const ALL_WEEK = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, open: 8 * 60, close: 20 * 60 }));
 
-export function tempDir(prefix = 'dcm-test-'): string {
+export function tempDir(prefix = 'dentalsys-test-'): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 

@@ -1,8 +1,8 @@
 {
-  "name": "dental-clinic-manager",
+  "name": "dentalsys",
   "version": "0.1.0",
   "private": true,
-  "description": "Branch-local dental clinic management system with cloud coordination (working name).",
+  "description": "Branch-local dental clinic management system with cloud coordination.",
   "type": "module",
   "engines": {
     "node": ">=22.12 <25"

@@ -31,7 +31,7 @@ export function page(o: PageOpts): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${o.title} · Dental Clinic Manager</title>
+<title>${o.title} · DentalSys</title>
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/app.js" defer></script>
 </head>
@@ -40,7 +40,7 @@ export function page(o: PageOpts): string {
 <div id="conn-banner" class="conn-banner" role="alert" hidden></div>
 ${ctx
   ? html`<header class="topbar">
-  <div class="brand"><span class="logo" aria-hidden="true">◆</span> Dental Clinic Manager</div>
+  <div class="brand"><span class="logo" aria-hidden="true">◆</span> DentalSys</div>
   <nav aria-label="Main">
     ${NAV.filter((n) => can(ctx, n.perm)).map((n) => html`<a href="${n.href}" ${n.key === o.active ? html`aria-current="page"` : ''}>${n.label}</a>`)}
   </nav>

@@ -18,7 +18,7 @@ export function registerAuthRoutes(app: FastifyInstance, { db, cfg }: Deps): voi
       title: 'Sign in',
       body: html`<div class="login-card">
         <h1>Sign in</h1>
-        <p class="muted">Dental Clinic Manager — clinic server</p>
+        <p class="muted">DentalSys — clinic server</p>
         ${error ? html`<div class="flash error" role="alert">${error}</div>` : ''}
         <form method="post" action="/login" class="stack">
           <input type="hidden" name="_csrf" value="${token}">
